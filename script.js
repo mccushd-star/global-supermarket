@@ -44,7 +44,14 @@ const products = [
   { id: 32, name: 'USB-C Wall Charger', category: 'Electronics', price: 39.00, emoji: '🔌', rating: 4.4, badge: '', description: 'A compact charger for compatible everyday devices.', brand: 'Bright Tech', deal: false }
 ];
 
-const STORAGE_KEYS = { cart: 'global-supermarket-cart', favorites: 'global-supermarket-favorites', location: 'global-supermarket-location' };
+const STORAGE_KEYS = { cart: 'global-supermarket-cart', favorites: 'global-supermarket-favorites', country: 'global-supermarket-country' };
+const DELIVERY_FEE = 10;
+const FREE_DELIVERY_THRESHOLD = 100;
+const countries = window.GLOBAL_COUNTRIES;
+const countriesByCode = new Map(countries.map((country) => [country.code, country]));
+const currencyRates = { AED: 1 };
+let exchangeRateDate = '';
+let exchangeRateLoading = true;
 const state = {
   category: 'All',
   search: '',
@@ -54,14 +61,14 @@ const state = {
   sort: 'featured',
   cart: readStorage(STORAGE_KEYS.cart, []),
   favorites: readStorage(STORAGE_KEYS.favorites, []),
-  location: readStorage(STORAGE_KEYS.location, 'Dubai')
+  countryCode: readCountryCode()
 };
 
 const $ = (selector) => document.querySelector(selector);
 const productsGrid = $('#productsGrid');
 const cartCount = $('#headerCartCount');
 const categoryNames = [...new Set(products.map((product) => product.category))];
-const currency = new Intl.NumberFormat('en-AE', { style: 'currency', currency: 'AED' });
+const currencyFormatters = new Map();
 
 function readStorage(key, fallback) {
   try {
@@ -71,6 +78,174 @@ function readStorage(key, fallback) {
     console.error(`Unable to read saved shop data (${key}).`, error);
     return fallback;
   }
+}
+
+function readCountryCode() {
+  const savedCountry = readStorage(STORAGE_KEYS.country, null);
+  if (countriesByCode.has(savedCountry)) return savedCountry;
+  return countriesByCode.has('AE') ? 'AE' : countries[0].code;
+}
+
+function getCountry(code = state.countryCode) {
+  return countriesByCode.get(code) || countriesByCode.get('AE') || countries[0];
+}
+
+function getCountryCurrency(country = getCountry()) {
+  return country.currency || 'AED';
+}
+
+function getDisplayCurrency() {
+  const country = getCountry();
+  const currencyCode = getCountryCurrency(country);
+  return currencyRates[currencyCode] ? currencyCode : 'AED';
+}
+
+function formatCurrency(value, currencyCode, countryCode) {
+  const locale = `en-${countryCode}`;
+  const key = `${locale}:${currencyCode}`;
+  let formatter = currencyFormatters.get(key);
+  if (!formatter) {
+    try {
+      formatter = new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode });
+    } catch {
+      formatter = new Intl.NumberFormat('en', { style: 'currency', currency: currencyCode });
+    }
+    currencyFormatters.set(key, formatter);
+  }
+  return formatter.format(value);
+}
+
+function renderCurrencyNotice() {
+  const country = getCountry();
+  const countryCurrency = getCountryCurrency(country);
+  if (countryCurrency !== 'AED' && !currencyRates[countryCurrency]) {
+    $('#currencyNotice').textContent = exchangeRateLoading
+      ? `Loading ${countryCurrency} rate for ${country.name}; prices are temporarily in AED.`
+      : `No current ${countryCurrency} rate for ${country.name}; prices remain in AED.`;
+    return;
+  }
+  if (exchangeRateLoading) {
+    $('#currencyNotice').textContent = `Loading daily exchange rates; prices are temporarily shown in AED for ${country.name}.`;
+    return;
+  }
+  if (!exchangeRateDate && countryCurrency === 'AED') {
+    $('#currencyNotice').textContent = 'Daily exchange rates unavailable; prices remain in AED.';
+    return;
+  }
+  const dateText = exchangeRateDate ? ` · daily rate ${exchangeRateDate}` : '';
+  $('#currencyNotice').textContent = `Prices in ${getDisplayCurrency()} for ${country.name}${dateText}. Indicative rates; no worldwide delivery.`;
+}
+
+async function loadExchangeRates() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch('https://api.frankfurter.dev/v2/rates?base=AED', { signal: controller.signal });
+    if (!response.ok) throw new Error(`Exchange rate service returned ${response.status}.`);
+    const entries = await response.json();
+    if (!Array.isArray(entries)) throw new Error('Exchange rate service returned an invalid response.');
+    const rates = Object.fromEntries(entries
+      .filter((entry) => entry && typeof entry.quote === 'string' && Number.isFinite(entry.rate) && entry.rate > 0)
+      .map((entry) => [entry.quote, entry.rate]));
+    if (rates.AED !== 1) throw new Error('Exchange rate service did not return AED as the base currency.');
+    Object.assign(currencyRates, rates);
+    exchangeRateDate = entries[0]?.date || '';
+  } catch (error) {
+    console.error('Unable to load daily exchange rates.', error);
+  } finally {
+    clearTimeout(timeout);
+  }
+  exchangeRateLoading = false;
+  renderCurrencyNotice();
+  syncFilterControls();
+  renderProducts();
+}
+
+function renderCountryOptions(searchTerm = '') {
+  const term = searchTerm.trim().toLocaleLowerCase();
+  const matchingCountries = countries
+    .filter((country) => {
+      const currencyCode = getCountryCurrency(country);
+      const searchable = `${country.name} ${country.code} ${currencyCode}`.toLocaleLowerCase();
+      return searchable.includes(term);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const results = $('#countryResults');
+  if (!matchingCountries.length) {
+    results.innerHTML = '<p class="country-empty">No countries match your search.</p>';
+    return;
+  }
+  results.innerHTML = matchingCountries.map((country) => {
+    const currencyCode = getCountryCurrency(country);
+    const currencyName = new Intl.DisplayNames(['en'], { type: 'currency' }).of(currencyCode);
+    const rateStatus = exchangeRateLoading
+      ? `${currencyCode} · loading rate`
+      : currencyRates[currencyCode]
+        ? `${currencyCode} · ${currencyName}`
+        : `${currencyCode} · rate unavailable`;
+    return `<button type="button" class="country-option ${country.code === state.countryCode ? 'selected' : ''}" data-country-code="${country.code}"><span>${country.name}</span><small>${rateStatus}</small></button>`;
+  }).join('');
+  results.querySelectorAll('[data-country-code]').forEach((button) => button.addEventListener('click', () => {
+    state.countryCode = button.dataset.countryCode;
+    saveStorage(STORAGE_KEYS.country, state.countryCode);
+    $('#selectedLocation').textContent = getCountry().name;
+    renderCurrencyNotice();
+    closeModal();
+    syncFilterControls();
+    renderProducts();
+    const selectedCurrency = getCountryCurrency();
+    showToast(currencyRates[selectedCurrency]
+      ? `Shopping country set to ${getCountry().name}`
+      : `No ${selectedCurrency} exchange rate available; prices remain in AED.`);
+  }));
+}
+
+function getDeliverySlots() {
+  const nowParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dubai',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+  const nowValues = Object.fromEntries(nowParts.map(({ type, value }) => [type, value]));
+  const now = new Date(Date.UTC(
+    Number(nowValues.year),
+    Number(nowValues.month) - 1,
+    Number(nowValues.day),
+    Number(nowValues.hour),
+    Number(nowValues.minute),
+    Number(nowValues.second)
+  ));
+  const earliestSlot = new Date(now.getTime() + 60 * 60 * 1000);
+  const windows = [
+    { startHour: 9, label: '9 am – 12 pm' },
+    { startHour: 12, label: '12 pm – 3 pm' },
+    { startHour: 18, label: '6 pm – 9 pm' }
+  ];
+  const dateFormatter = new Intl.DateTimeFormat('en-AE', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short'
+  });
+
+  return Array.from({ length: 3 }, (_, dayOffset) => {
+    const slotDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + dayOffset, 12));
+    const dateLabel = dayOffset === 0
+      ? 'Today'
+      : dateFormatter.format(slotDay);
+    return windows
+      .filter(({ startHour }) => {
+        const start = new Date(slotDay);
+        start.setUTCHours(startHour, 0, 0, 0);
+        return start >= earliestSlot;
+      })
+      .map(({ label }) => `${dateLabel}, ${label}`);
+  }).flat();
 }
 
 function saveStorage(key, value) {
@@ -83,7 +258,10 @@ function saveStorage(key, value) {
 }
 
 function money(value) {
-  return currency.format(value);
+  const country = getCountry();
+  const currencyCode = getDisplayCurrency();
+  const rate = currencyRates[currencyCode] || 1;
+  return formatCurrency(value * rate, currencyCode, country.code);
 }
 
 function showToast(message) {
@@ -108,6 +286,21 @@ function renderDepartments() {
   $('#categoryFilter').innerHTML = ['All', ...categoryNames].map((category) => `
     <label class="check-row"><input type="checkbox" value="${category}" ${state.category === category ? 'checked' : ''} />${category}</label>
   `).join('');
+  syncFilterControls();
+}
+
+function syncFilterControls() {
+  $('#clearSearch').classList.toggle('visible', Boolean(state.search.trim()));
+  $('#offersOnly').checked = state.offersOnly;
+  $('#priceLimit').value = String(state.maxPrice);
+  $('#priceLimitLabel').textContent = money(state.maxPrice);
+  $('#sortSelect').value = state.sort;
+
+  const categoryInputs = $('#categoryFilter').querySelectorAll('input');
+  categoryInputs.forEach((input) => {
+    const checked = state.category === 'All' ? input.value === 'All' : input.value === state.category;
+    input.checked = checked;
+  });
 }
 
 function getFilteredProducts() {
@@ -222,13 +415,25 @@ function renderCart() {
     return `<div class="cart-line"><span class="cart-product-icon">${product.emoji}</span><div class="cart-line-info"><b>${product.name}</b><small>${money(product.price)} each</small><div class="quantity-control"><button type="button" data-qty="${product.id}" data-delta="-1" aria-label="Decrease ${product.name} quantity">−</button><span>${line.quantity}</span><button type="button" data-qty="${product.id}" data-delta="1" aria-label="Increase ${product.name} quantity">+</button></div></div><strong>${money(product.price * line.quantity)}</strong><button class="remove-line" type="button" data-remove="${product.id}" aria-label="Remove ${product.name}">×</button></div>`;
   }).join('');
   const subtotal = cartSubtotal();
-  const delivery = subtotal === 0 || subtotal >= 100 ? 0 : 10;
+  const freeDeliveryReached = subtotal >= FREE_DELIVERY_THRESHOLD;
+  const delivery = subtotal === 0 || freeDeliveryReached ? 0 : DELIVERY_FEE;
   const total = subtotal + delivery;
+  const progress = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
+  const deliveryMessage = freeDeliveryReached
+    ? 'You’ve unlocked free delivery.'
+    : subtotal > 0
+      ? `Add ${money(FREE_DELIVERY_THRESHOLD - subtotal)} more for free delivery.`
+      : `Free delivery on orders over ${money(FREE_DELIVERY_THRESHOLD)}.`;
   openModal('Your basket', `
     <div class="cart-modal-content">
+      <div class="delivery-progress">
+        <div class="delivery-progress-copy"><span>Shopping country: <b>${getCountry().name}</b></span><b>${deliveryMessage}</b></div>
+        <div class="delivery-progress-track" role="progressbar" aria-label="Free delivery progress" aria-valuemin="0" aria-valuemax="${money(FREE_DELIVERY_THRESHOLD)}" aria-valuenow="${money(Math.min(subtotal, FREE_DELIVERY_THRESHOLD))}" aria-valuetext="${money(Math.min(subtotal, FREE_DELIVERY_THRESHOLD))} of ${money(FREE_DELIVERY_THRESHOLD)}"><span style="width: ${progress}%"></span></div>
+      </div>
       ${lines || '<div class="cart-empty"><span>🛍️</span><b>Your basket is waiting</b><p>Add a few everyday favorites to get started.</p></div>'}
-      <div class="cart-summary"><p><span>Subtotal</span><b>${money(subtotal)}</b></p><p><span>Delivery</span><b>${subtotal >= 100 ? 'FREE' : subtotal ? money(delivery) : money(0)}</b></p><p class="summary-total"><span>Total</span><b>${money(total)}</b></p><small>${subtotal > 0 && subtotal < 100 ? `Add ${money(100 - subtotal)} more for free delivery.` : 'Free delivery on orders over AED 100.'}</small></div>
-      <button class="modal-primary" type="button" id="checkoutStart" ${subtotal ? '' : 'disabled'}>Continue to checkout <span>→</span></button>
+      <div class="cart-summary"><p><span>Subtotal</span><b>${money(subtotal)}</b></p><p><span>Delivery</span><b>${freeDeliveryReached ? 'FREE' : subtotal ? money(delivery) : money(0)}</b></p><p class="summary-total"><span>Total</span><b>${money(total)}</b></p></div>
+      <button class="modal-primary" type="button" id="checkoutStart" ${subtotal ? '' : 'disabled'}>Checkout as guest <span>→</span></button>
+      <small class="demo-note">No account needed. Delivery totals are illustrative; worldwide shipping, real orders, and payment are not connected.</small>
     </div>`, true);
   $('#modalRoot').querySelectorAll('[data-qty]').forEach((button) => button.addEventListener('click', () => changeQuantity(Number(button.dataset.qty), Number(button.dataset.delta))));
   $('#modalRoot').querySelectorAll('[data-remove]').forEach((button) => button.addEventListener('click', () => {
@@ -251,50 +456,67 @@ function changeQuantity(id, delta) {
 }
 
 function renderCheckout() {
-  const total = cartSubtotal() + (cartSubtotal() >= 100 ? 0 : 10);
+  const subtotal = cartSubtotal();
+  const delivery = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const total = subtotal + delivery;
+  const deliverySlots = getDeliverySlots();
+  const orderLines = state.cart.map((line) => {
+    const product = products.find((item) => item.id === line.id);
+    return product ? `<p><span>${product.name} × ${line.quantity}</span><b>${money(product.price * line.quantity)}</b></p>` : '';
+  }).join('');
   openModal('Delivery details', `
     <form id="checkoutForm" class="checkout-form">
-      <p class="modal-intro">Choose where and when your order should arrive. This demo does not collect payment.</p>
+      <p class="modal-intro">Checking out as a guest — no account is required. This demo accepts a destination for preview only; worldwide delivery is not connected.</p>
       <label>Full name<input name="name" required autocomplete="name" placeholder="Your name" /></label>
       <label>Mobile number<input name="phone" required type="tel" minlength="7" maxlength="20" autocomplete="tel" placeholder="+971 5X XXX XXXX" /></label>
-      <label>Delivery area<select name="area" required><option value="${state.location}">${state.location}</option><option>Abu Dhabi</option><option>Sharjah</option><option>Ajman</option><option>Al Ain</option><option>Ras Al Khaimah</option><option>Fujairah</option></select></label>
+      <label>Destination country<select name="country" required>${countries.slice().sort((a, b) => a.name.localeCompare(b.name)).map((country) => `<option value="${country.code}"${country.code === state.countryCode ? ' selected' : ''}>${country.name}</option>`).join('')}</select></label>
       <label>Building, street and apartment<textarea name="address" required rows="2" placeholder="Enter your delivery address"></textarea></label>
-      <label>Delivery time<select name="slot" required><option value="">Choose a time slot</option><option>Today, 6 pm – 9 pm</option><option>Tomorrow, 9 am – 12 pm</option><option>Tomorrow, 12 pm – 3 pm</option><option>Tomorrow, 6 pm – 9 pm</option></select></label>
+      <label>Demo delivery time<select name="slot" required><option value="">Choose a time slot</option>${deliverySlots.map((slot) => `<option>${slot}</option>`).join('')}</select></label>
       <label>Payment method<select name="payment"><option>Cash on delivery (demo)</option><option>Card on delivery (demo)</option></select></label>
-      <div class="checkout-total"><span>Order total</span><b>${money(total)}</b></div>
+      <div class="checkout-review"><b>Order summary</b>${orderLines}<p><span>Subtotal</span><b>${money(subtotal)}</b></p><p><span>Delivery</span><b>${delivery ? money(delivery) : 'FREE'}</b></p><p class="checkout-total"><span>Order total</span><b>${money(total)}</b></p></div>
       <button class="modal-primary" type="submit">Place demo order <span>→</span></button>
       <small class="demo-note">Demo only — no payment will be taken and no real order is sent.</small>
     </form>`, true);
   $('#checkoutForm').addEventListener('submit', (event) => {
     event.preventDefault();
     if (!event.currentTarget.reportValidity()) return;
+    const formData = new FormData(event.currentTarget);
     const orderNumber = `GS-${Math.floor(100000 + Math.random() * 900000)}`;
+    const countryCode = formData.get('country');
+    const country = getCountry(countryCode);
+    const slot = formData.get('slot');
     state.cart = [];
+    state.countryCode = countryCode;
     saveStorage(STORAGE_KEYS.cart, state.cart);
+    saveStorage(STORAGE_KEYS.country, state.countryCode);
+    $('#selectedLocation').textContent = country.name;
+    renderCurrencyNotice();
     updateCartCount();
-    openModal('Order received!', `<div class="success-state"><span>✓</span><p>Thanks for trying GLOBAL SUPERMARKET. Your demo order <b>${orderNumber}</b> is confirmed locally.</p><button class="modal-primary" type="button" data-finish>Continue shopping</button></div>`);
+    openModal('Order received!', `<div class="success-state"><span>✓</span><p>Your demo order <b>${orderNumber}</b> is recorded for <b>${country.name}</b>.</p><p class="order-confirmation-detail">Chosen demo time: ${slot}<br />Order total: ${money(total)}</p><small class="demo-note">This is a local preview only. No order was sent and worldwide delivery is not available.</small><button class="modal-primary" type="button" data-finish>Continue shopping</button></div>`);
     $('#modalRoot').querySelector('[data-finish]').addEventListener('click', closeModal);
   });
 }
 
 function renderAccount() {
   openModal('Welcome to GLOBAL SUPERMARKET', `
-    <div class="account-panel"><p class="modal-intro">Sign-in is a UI preview in this demo. Account registration and authentication need a secure server.</p><form id="accountForm"><label>Email address<input type="email" placeholder="you@example.com" required autocomplete="email" /></label><button class="modal-primary" type="submit">Continue with email <span>→</span></button></form><div class="account-benefits"><b>Your account, your way</b><span>♡ Save products for later</span><span>▤ Keep track of your orders</span><span>⌖ Manage delivery addresses</span></div></div>`);
+    <div class="account-panel"><p class="modal-intro">An account is optional. You can browse, shop, and check out as a guest. Sign-in here is a preview and needs a connected authentication service.</p><form id="accountForm"><label>Email address<input type="email" placeholder="you@example.com" required autocomplete="email" /></label><button class="modal-primary" type="submit">Continue with email <span>→</span></button></form><button class="guest-button" type="button" data-guest>Continue as guest</button><div class="account-benefits"><b>With an account, you could</b><span>♡ Save products for later</span><span>▤ Keep track of your orders</span><span>⌖ Manage delivery addresses</span></div></div>`);
   $('#accountForm').addEventListener('submit', (event) => {
     event.preventDefault();
     showToast('Account sign-in needs a connected authentication service.');
   });
+  $('#modalRoot').querySelector('[data-guest]').addEventListener('click', closeModal);
 }
 
 function renderLocation() {
-  openModal('Choose your delivery area', `<p class="modal-intro">We’ll tailor your shopping experience to your location.</p><div class="location-options">${['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Al Ain', 'Ras Al Khaimah', 'Fujairah'].map((city) => `<button type="button" class="${city === state.location ? 'selected' : ''}" data-city="${city}"><span>⌖</span>${city}<span>${city === state.location ? '✓' : '→'}</span></button>`).join('')}</div>`);
-  $('#modalRoot').querySelectorAll('[data-city]').forEach((button) => button.addEventListener('click', () => {
-    state.location = button.dataset.city;
-    $('#selectedLocation').textContent = state.location;
-    saveStorage(STORAGE_KEYS.location, state.location);
-    closeModal();
-    showToast(`Delivery area set to ${state.location}`);
-  }));
+  openModal('Choose your country', `
+    <div class="country-picker">
+      <p class="modal-intro">Search by country to see prices in its currency. Exchange rates are indicative; worldwide delivery is not available in this demo.</p>
+      <label class="country-search-label" for="countrySearch">Country or currency</label>
+      <input id="countrySearch" class="country-search" type="search" placeholder="Search countries or currency codes" autocomplete="off" />
+      <div id="countryResults" class="country-results" role="list"></div>
+    </div>`, true);
+  renderCountryOptions();
+  $('#countrySearch').addEventListener('input', (event) => renderCountryOptions(event.target.value));
 }
 
 function renderInfo(title, text, details = []) {
@@ -305,8 +527,9 @@ function renderInfo(title, text, details = []) {
 function setCategory(category) {
   state.category = categoryNames.includes(category) ? category : 'All';
   state.favoritesOnly = false;
+  state.offersOnly = false;
   $('#catalogueTitle').textContent = state.category === 'All' ? 'Popular right now' : state.category;
-  $('#categoryFilter').querySelectorAll('input').forEach((input) => { input.checked = input.value === state.category; });
+  syncFilterControls();
   renderProducts();
   $('#catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -319,11 +542,8 @@ function resetFilters() {
   state.maxPrice = 100;
   state.sort = 'featured';
   $('#searchInput').value = '';
-  $('#offersOnly').checked = false;
-  $('#priceLimit').value = '100';
-  $('#priceLimitLabel').textContent = 'AED 100';
-  $('#sortSelect').value = 'featured';
   $('#catalogueTitle').textContent = 'Popular right now';
+  syncFilterControls();
   renderDepartments();
   renderProducts();
 }
@@ -333,6 +553,7 @@ function showFavorites() {
   state.category = 'All';
   state.offersOnly = false;
   $('#catalogueTitle').textContent = 'Your favorites';
+  syncFilterControls();
   $('#catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
   renderProducts();
 }
@@ -341,8 +562,8 @@ function showDeals() {
   state.favoritesOnly = false;
   state.category = 'All';
   state.offersOnly = true;
-  $('#offersOnly').checked = true;
   $('#catalogueTitle').textContent = "Today's offers";
+  syncFilterControls();
   $('#catalogue').scrollIntoView({ behavior: 'smooth', block: 'start' });
   renderProducts();
 }
@@ -364,13 +585,29 @@ function bindEvents() {
   $('#offersOnly').addEventListener('change', (event) => { state.offersOnly = event.target.checked; state.favoritesOnly = false; renderProducts(); });
   $('#priceLimit').addEventListener('input', (event) => {
     state.maxPrice = Number(event.target.value);
-    $('#priceLimitLabel').textContent = `AED ${state.maxPrice}`;
+    $('#priceLimitLabel').textContent = money(state.maxPrice);
     renderProducts();
   });
   $('#categoryFilter').addEventListener('change', (event) => {
     if (event.target.matches('input')) {
-      state.category = event.target.checked ? event.target.value : 'All';
+      const value = event.target.value;
+      const allInputs = $('#categoryFilter').querySelectorAll('input');
+      if (value === 'All') {
+        state.category = 'All';
+        allInputs.forEach((input) => { input.checked = input.value === 'All'; });
+      } else {
+        state.category = event.target.checked ? value : 'All';
+        allInputs.forEach((input) => {
+          if (input.value === 'All') input.checked = false;
+          else input.checked = input.value === state.category;
+        });
+        if (!event.target.checked) {
+          state.category = 'All';
+          $('#categoryFilter').querySelector('input[value="All"]').checked = true;
+        }
+      }
       state.favoritesOnly = false;
+      state.offersOnly = false;
       $('#catalogueTitle').textContent = state.category === 'All' ? 'Popular right now' : state.category;
       renderProducts();
     }
@@ -379,10 +616,10 @@ function bindEvents() {
   $('#resetCatalogue').addEventListener('click', resetFilters);
   $('#activeFilter').addEventListener('click', () => {
     if (state.favoritesOnly) state.favoritesOnly = false;
-    else if (state.offersOnly) { state.offersOnly = false; $('#offersOnly').checked = false; }
+    else if (state.offersOnly) { state.offersOnly = false; }
     else state.category = 'All';
     $('#catalogueTitle').textContent = 'Popular right now';
-    $('#categoryFilter').querySelectorAll('input').forEach((input) => { input.checked = input.value === 'All'; });
+    syncFilterControls();
     renderProducts();
   });
   $('#departmentNav').addEventListener('click', (event) => {
@@ -409,7 +646,7 @@ function bindEvents() {
     else if (action === 'deals') showDeals();
     else if (action === 'all-departments') {
       document.querySelector('.category-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else if (action === 'delivery-info') renderInfo('Delivery information', 'Choose a delivery area to see available service options. Delivery charges in this demo are AED 10, waived on baskets of AED 100 or more.', [['Coverage', 'Selected UAE cities (illustrative)'], ['Delivery slots', 'Choose a preferred slot at demo checkout'], ['Order tracking', 'Requires a connected order service']]);
+    }     else if (action === 'delivery-info') renderInfo('Delivery information', 'Choose any country to preview prices in its local currency. Global shipping, live inventory, and real delivery charges are not connected in this demo.', [['Currency conversion', 'Indicative daily exchange rates; some currencies may not be available'], ['Delivery fee', `${money(DELIVERY_FEE)} in this preview; waived on baskets of ${money(FREE_DELIVERY_THRESHOLD)} or more`], ['Delivery slots', 'Illustrative demo times only']]);
     else if (action === 'pickup') renderInfo('Click & collect', 'Choose your shopping online and collect it from a convenient store. Store selection and collection availability need a connected store service.', [['Store availability', 'Not connected in this demo'], ['Collection time', 'Shown after choosing a store']]);
     else if (action === 'help') renderInfo('How can we help?', 'This preview includes the main shopping experience. Live order support requires a connected support team.', [['Orders', 'Place a demo order from your basket'], ['Products', 'Search or browse the departments'], ['Delivery', 'Choose an area and time at checkout']]);
     else if (action === 'contact') renderInfo('Contact GLOBAL SUPERMARKET', 'This demo has no live customer-service channel. Add your preferred support email or phone when connecting a real service.');
@@ -419,6 +656,8 @@ function bindEvents() {
 
 renderDepartments();
 bindEvents();
-$('#selectedLocation').textContent = state.location;
+$('#selectedLocation').textContent = getCountry().name;
+renderCurrencyNotice();
 updateCartCount();
 renderProducts();
+loadExchangeRates();

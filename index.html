@@ -15,7 +15,7 @@
     <div class="site-shell">
       <div class="announcement">
         <span>Fresh deals for your everyday</span>
-        <span>Delivery across selected UAE locations</span>
+        <span id="currencyNotice">Prices shown in AED. Choose a country for local currency.</span>
         <button type="button" data-action="delivery-info">Delivery information</button>
       </div>
 
@@ -25,7 +25,7 @@
           <span class="brand-name">GLOBAL <b>SUPERMARKET</b><small>Good food. Great everyday.</small></span>
         </a>
         <button class="location-button" type="button" data-action="location">
-          <span aria-hidden="true">⌖</span><span><small>Deliver to</small><strong id="selectedLocation">Dubai</strong></span><span aria-hidden="true">⌄</span>
+          <span aria-hidden="true">⌖</span><span><small>Shopping country</small><strong id="selectedLocation">United Arab Emirates</strong></span><span aria-hidden="true">⌄</span>
         </button>
         <label class="search" aria-label="Search products">
           <span aria-hidden="true">⌕</span>
@@ -102,6 +102,7 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="modalRoot"></div>
+    <script src="data/countries.js"></script>
     <script src="script.js"></script>
   </body>
 </html>
