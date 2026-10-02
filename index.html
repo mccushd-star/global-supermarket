@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#087d45" />
+    <meta name="description" content="Shop groceries, fresh food, home essentials and more at GLOBAL SUPERMARKET UAE." />
+    <title>GLOBAL SUPERMARKET | Online shopping UAE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <div class="announcement">
+        <span>Fresh deals for your everyday</span>
+        <span>Delivery across selected UAE locations</span>
+        <button type="button" data-action="delivery-info">Delivery information</button>
+      </div>
+
+      <header class="site-header">
+        <a class="brand" href="#" aria-label="GLOBAL SUPERMARKET home">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <span class="brand-name">GLOBAL <b>SUPERMARKET</b><small>Good food. Great everyday.</small></span>
+        </a>
+        <button class="location-button" type="button" data-action="location">
+          <span aria-hidden="true">⌖</span><span><small>Deliver to</small><strong id="selectedLocation">Dubai</strong></span><span aria-hidden="true">⌄</span>
+        </button>
+        <label class="search" aria-label="Search products">
+          <span aria-hidden="true">⌕</span>
+          <input id="searchInput" type="search" placeholder="Search products, brands and more" autocomplete="off" />
+          <button type="button" id="clearSearch" aria-label="Clear search">×</button>
+        </label>
+        <div class="header-actions">
+          <button class="header-action" type="button" data-action="account"><span aria-hidden="true">♙</span><span>Account</span></button>
+          <button class="header-action" type="button" data-action="favorites"><span aria-hidden="true">♡</span><span>Favorites</span></button>
+          <button class="header-action cart-action" type="button" data-action="cart"><span aria-hidden="true">🛒</span><span>Cart</span><b id="headerCartCount">0</b></button>
+        </div>
+      </header>
+
+      <nav class="department-nav" aria-label="Shop departments" id="departmentNav"></nav>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <span class="hero-kicker">Your neighborhood, online</span>
+            <h1>Good things<br />for <em>every day.</em></h1>
+            <p>Fresh food, home essentials and everything in between — all in one easy shop.</p>
+            <button class="hero-button" type="button" data-action="deals">Explore today's offers <span aria-hidden="true">→</span></button>
+            <div class="hero-note"><span>✦</span> Carefully picked for your home</div>
+          </div>
+          <div class="hero-art" aria-label="Fresh produce illustration">
+            <div class="sun-disc"></div><span class="hero-produce produce-one">🥑</span><span class="hero-produce produce-two">🍊</span><span class="hero-produce produce-three">🥬</span><span class="hero-produce produce-four">🍅</span>
+            <div class="hero-art-caption"><b>Fresh picks</b><span>Everyday goodness, delivered</span></div>
+          </div>
+          <div class="hero-pagination" aria-hidden="true"><b></b><i></i><i></i></div>
+        </section>
+
+        <section class="service-strip" aria-label="Shopping services">
+          <button class="service-card" type="button" data-action="delivery-info"><span class="service-icon">🚚</span><span><b>Delivery to your door</b><small>Choose a time that suits you</small></span><span class="service-arrow">→</span></button>
+          <button class="service-card" type="button" data-action="pickup"><span class="service-icon">🛍️</span><span><b>Click & collect</b><small>Pick up at a nearby store</small></span><span class="service-arrow">→</span></button>
+          <button class="service-card" type="button" data-action="help"><span class="service-icon">💬</span><span><b>Here to help</b><small>Find answers to common questions</small></span><span class="service-arrow">→</span></button>
+        </section>
+
+        <section class="category-section">
+          <div class="section-heading"><div><span class="section-eyebrow">Find your favorites</span><h2>Shop by department</h2></div><button class="text-button" type="button" data-action="all-departments">View all departments <span>→</span></button></div>
+          <div class="category-tiles" id="categoryTiles"></div>
+        </section>
+
+        <section class="deal-banner">
+          <div><span class="deal-kicker">Good finds, better prices</span><h2>Little extras.<br /><em>Lovely offers.</em></h2><p>Explore a rotating selection of deals across the store.</p><button type="button" data-action="deals">Shop offers <span>→</span></button></div>
+          <div class="deal-stickers" aria-hidden="true"><span>٪</span><b>DEALS<br />FOR YOU</b><i>✦</i></div>
+        </section>
+
+        <section class="catalogue" id="catalogue">
+          <div class="section-heading product-heading"><div><span class="section-eyebrow">A little bit of everything</span><h2 id="catalogueTitle">Popular right now</h2></div><div class="catalogue-tools"><label class="sort-label">Sort by <select id="sortSelect" aria-label="Sort products"><option value="featured">Recommended</option><option value="price-asc">Price: low to high</option><option value="price-desc">Price: high to low</option><option value="rating">Top rated</option><option value="name">Name: A to Z</option></select></label></div></div>
+          <div class="catalogue-body">
+            <aside class="filter-panel">
+              <h3>Refine your search</h3>
+              <button type="button" id="clearFilters" class="clear-filters">Clear all</button>
+              <div class="filter-group"><b>Department</b><div id="categoryFilter" class="filter-options"></div></div>
+              <div class="filter-group"><b>Offers</b><label class="check-row"><input type="checkbox" id="offersOnly" /> On offer</label></div>
+              <div class="filter-group"><b>Price range</b><label class="price-filter">Up to <span id="priceLimitLabel">AED 100</span><input type="range" id="priceLimit" min="5" max="100" step="5" value="100" /></label></div>
+            </aside>
+            <div class="catalogue-results">
+              <div class="results-toolbar"><span id="resultsCount"></span><button type="button" id="activeFilter" class="active-filter" hidden></button></div>
+              <div id="productsGrid" class="products-grid" aria-live="polite"></div>
+              <div class="catalogue-bottom"><span>Showing our curated selection of everyday essentials.</span><button type="button" id="resetCatalogue">Reset filters</button></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="footer-brand"><span class="brand-mark">G</span><span><b>GLOBAL SUPERMARKET</b><small>Good food. Great everyday.</small></span></div>
+        <div><b>Shop with confidence</b><span>Fresh picks</span><span>Everyday essentials</span><span>Offers and new finds</span></div>
+        <div><b>Need a hand?</b><button type="button" data-action="help">Help & FAQs</button><button type="button" data-action="delivery-info">Delivery information</button><button type="button" data-action="contact">Contact us</button></div>
+        <div class="footer-note">A locally running shopping demo. Product range, prices, availability and delivery details are illustrative.</div>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="modalRoot"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
