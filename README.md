@@ -31,6 +31,10 @@ This is a static site with no build step. The included `netlify.toml` sets the r
 
 To make the live site open without a password, disable Team protection or password protection in the Netlify site/team access settings. That access control is managed by Netlify and cannot be changed by this site's files. If the site shows a not-found page instead, confirm the latest deploy is published and its deploy summary lists `index.html`.
 
+## Deploy on GitHub Pages
+
+Enable GitHub Pages once in the repository settings by selecting **Settings → Pages → Build and deployment → GitHub Actions**. The `.github/workflows/pages.yml` workflow then publishes the static site whenever changes are pushed to `main`. After the first successful deployment, the public URL is <https://mccushd-star.github.io/global-supermarket/>.
+
 ## Demo boundaries
 
-The product catalog and AED base prices are illustrative sample content. Prices are converted for display using daily indicative reference rates from [Frankfurter](https://frankfurter.dev/); they are not live retail prices, and availability of a currency rate depends on the rate provider. The country directory is derived from [`countries-list`](https://www.npmjs.com/package/countries-list) under the included MIT license in `data/COUNTRIES-LICENSE`. Country selection changes display currency only: worldwide shipping, stock, checkout, accounts, order tracking, customer support, and payment are not connected. A production supermarket requires a secure backend and authorized integrations for those services.
+The product catalog, product photos, AED base prices, and delivery experience are illustrative sample content. Product photos are loaded from [Unsplash](https://unsplash.com/). Prices are converted for display using daily indicative reference rates from [Frankfurter](https://frankfurter.dev/); they are not live retail prices, and availability of a currency rate depends on the rate provider. The country directory is derived from [`countries-list`](https://www.npmjs.com/package/countries-list) under the included MIT license in `data/COUNTRIES-LICENSE`. Country selection changes display currency only: worldwide shipping, stock, checkout, accounts, order tracking, customer support, and payment are not connected. A production supermarket requires a secure backend and authorized integrations for those services.

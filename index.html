@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#087d45" />
+    <meta name="theme-color" content="#0f7a4b" />
     <meta name="description" content="Shop groceries, fresh food, home essentials and more at GLOBAL SUPERMARKET UAE." />
     <title>GLOBAL SUPERMARKET | Online shopping UAE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -11,7 +11,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="welcome-mode">
+    <div id="welcomeScreen" class="welcome-screen" aria-live="polite">
+      <div class="welcome-backdrop"></div>
+      <div class="welcome-panel">
+        <div class="welcome-badge">Fresh groceries. Made simple.</div>
+        <div class="welcome-brand">
+          <span class="brand-mark" aria-hidden="true">G</span>
+          <div>
+            <span class="welcome-brand-name">GLOBAL <b>SUPERMARKET</b></span>
+            <small>Good food. Great everyday.</small>
+          </div>
+        </div>
+        <h1>Welcome to your everyday shopping hub.</h1>
+        <p>Discover premium groceries, fresh produce, household essentials, and offers curated for your home.</p>
+        <div class="welcome-features">
+          <span>🥬 Fresh produce</span>
+          <span>🛒 Everyday essentials</span>
+          <span>🚚 Delivery preview</span>
+        </div>
+        <button id="enterStore" type="button" class="welcome-button">Start shopping <span>→</span></button>
+      </div>
+    </div>
+
     <div class="site-shell">
       <div class="announcement">
         <span>Fresh deals for your everyday</span>

@@ -44,6 +44,41 @@ const products = [
   { id: 32, name: 'USB-C Wall Charger', category: 'Electronics', price: 39.00, emoji: '🔌', rating: 4.4, badge: '', description: 'A compact charger for compatible everyday devices.', brand: 'Bright Tech', deal: false }
 ];
 
+const productPhotos = {
+  1: 'photo-1523049673857-eb18f1d7b578',
+  2: 'photo-1560806887-1e4cd0b6cbd6',
+  3: 'photo-1571771894821-ce9b6c11b08e',
+  4: 'photo-1576045057995-568f588f82fb',
+  5: 'photo-1546094096-0df4bcaaa337',
+  6: 'photo-1604503468506-a8da13d82791',
+  7: 'photo-1607623814075-e51df1bdc82f',
+  8: 'photo-1519708227418-c8fd9a32b7a2',
+  9: 'photo-1565680018434-b513d5e5fd47',
+  10: 'photo-1509440159596-0249088772ff',
+  11: 'photo-1555507036-ab1f4038808a',
+  12: 'photo-1550583724-b2692b85b150',
+  13: 'photo-1518569656558-1f25e69d93d7',
+  14: 'photo-1488477181946-6428a0291777',
+  15: 'photo-1586201375761-83865001e31c',
+  16: 'photo-1474979266404-7eaacbcd87c5',
+  17: 'photo-1515543904379-3d757afe72e4',
+  18: 'photo-1574323347407-f5e1ad6d020b',
+  19: 'photo-1517093157656-b9eccef91cb1',
+  20: 'photo-1606313564200-e75d5e30476c',
+  21: 'photo-1573080496219-bb080dd4f877',
+  22: 'photo-1527960471264-932f39eb5846',
+  23: 'photo-1600271886742-f049cd451bba',
+  24: 'photo-1563805042-7684c019e1cb',
+  25: 'photo-1587049633312-d628ae50a8ae',
+  26: 'photo-1602143407151-7111542de6e8',
+  27: 'photo-1585421514738-01798e348b17',
+  28: 'photo-1608248543803-ba4f8c70ae0b',
+  29: 'photo-1604917877934-07d8d248d396',
+  30: 'photo-1599623560574-39d485900c95',
+  31: 'photo-1606220945770-b5b6c2c55bf1',
+  32: 'photo-1609091839311-d5365f9ff1c5'
+};
+
 const STORAGE_KEYS = { cart: 'global-supermarket-cart', favorites: 'global-supermarket-favorites', country: 'global-supermarket-country' };
 const DELIVERY_FEE = 10;
 const FREE_DELIVERY_THRESHOLD = 100;
@@ -136,17 +171,32 @@ function renderCurrencyNotice() {
   $('#currencyNotice').textContent = `Prices in ${getDisplayCurrency()} for ${country.name}${dateText}. Indicative rates; no worldwide delivery.`;
 }
 
+function normalizeExchangeRateEntries(payload) {
+  if (Array.isArray(payload)) {
+    return payload.filter((entry) => entry && typeof entry.quote === 'string' && Number.isFinite(entry.rate) && entry.rate > 0)
+      .map((entry) => ({ quote: entry.quote, rate: entry.rate, date: entry.date || '' }));
+  }
+
+  if (payload && typeof payload === 'object' && payload.rates && typeof payload.rates === 'object') {
+    return Object.entries(payload.rates)
+      .filter(([, rate]) => Number.isFinite(rate) && rate > 0)
+      .map(([quote, rate]) => ({ quote, rate, date: payload.date || '' }));
+  }
+
+  return [];
+}
+
 async function loadExchangeRates() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch('https://api.frankfurter.dev/v2/rates?base=AED', { signal: controller.signal });
     if (!response.ok) throw new Error(`Exchange rate service returned ${response.status}.`);
-    const entries = await response.json();
-    if (!Array.isArray(entries)) throw new Error('Exchange rate service returned an invalid response.');
-    const rates = Object.fromEntries(entries
-      .filter((entry) => entry && typeof entry.quote === 'string' && Number.isFinite(entry.rate) && entry.rate > 0)
-      .map((entry) => [entry.quote, entry.rate]));
+    const payload = await response.json();
+    const entries = normalizeExchangeRateEntries(payload);
+    if (!entries.length) throw new Error('Exchange rate service returned an invalid response.');
+
+    const rates = Object.fromEntries(entries.map((entry) => [entry.quote, Number(entry.rate)]));
     if (rates.AED !== 1) throw new Error('Exchange rate service did not return AED as the base currency.');
     Object.assign(currencyRates, rates);
     exchangeRateDate = entries[0]?.date || '';
@@ -177,7 +227,8 @@ function renderCountryOptions(searchTerm = '') {
   }
   results.innerHTML = matchingCountries.map((country) => {
     const currencyCode = getCountryCurrency(country);
-    const currencyName = new Intl.DisplayNames(['en'], { type: 'currency' }).of(currencyCode);
+    const localeDisplayNames = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type: 'currency' }) : null;
+    const currencyName = localeDisplayNames ? localeDisplayNames.of(currencyCode) : currencyCode;
     const rateStatus = exchangeRateLoading
       ? `${currencyCode} · loading rate`
       : currencyRates[currencyCode]
@@ -344,7 +395,8 @@ function renderProducts() {
       <div class="product-visual">
         ${product.deal ? '<span class="product-badge">OFFER</span>' : product.badge ? `<span class="product-badge neutral-badge">${product.badge}</span>` : ''}
         <button class="favorite-button ${state.favorites.includes(product.id) ? 'is-favorite' : ''}" type="button" data-favorite="${product.id}" aria-label="${state.favorites.includes(product.id) ? 'Remove from' : 'Add to'} favorites">${state.favorites.includes(product.id) ? '♥' : '♡'}</button>
-        <span class="product-emoji" aria-hidden="true">${product.emoji}</span>
+        <img class="product-image" src="https://images.unsplash.com/${productPhotos[product.id]}?auto=format&fit=crop&w=720&q=82" alt="Photo of ${product.name}" loading="lazy" decoding="async" />
+        <span class="product-emoji" aria-hidden="true" hidden>${product.emoji}</span>
       </div>
       <div class="product-body">
         <div class="product-meta"><span>${product.category}</span><span class="product-rating">★ ${product.rating.toFixed(1)}</span></div>
@@ -356,6 +408,10 @@ function renderProducts() {
     </article>
   `).join('');
 
+  productsGrid.querySelectorAll('.product-image').forEach((image) => image.addEventListener('error', () => {
+    image.hidden = true;
+    image.nextElementSibling.hidden = false;
+  }, { once: true }));
   productsGrid.querySelectorAll('[data-add]').forEach((button) => button.addEventListener('click', () => addToCart(Number(button.dataset.add))));
   productsGrid.querySelectorAll('[data-favorite]').forEach((button) => button.addEventListener('click', () => toggleFavorite(Number(button.dataset.favorite))));
 }
@@ -652,6 +708,17 @@ function bindEvents() {
     else if (action === 'contact') renderInfo('Contact GLOBAL SUPERMARKET', 'This demo has no live customer-service channel. Add your preferred support email or phone when connecting a real service.');
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeModal(); });
+}
+
+const welcomeScreen = $('#welcomeScreen');
+const enterStore = $('#enterStore');
+
+if (enterStore) {
+  enterStore.addEventListener('click', () => {
+    document.body.classList.remove('welcome-mode');
+    document.body.classList.add('store-mode');
+    if (welcomeScreen) welcomeScreen.classList.add('hidden');
+  });
 }
 
 renderDepartments();
