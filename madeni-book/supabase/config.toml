@@ -1,0 +1,6 @@
+# Edge function settings. Only the two provider callbacks are public; they find their record by an unguessable transaction id.
+[functions.mpesa-callback]
+verify_jwt = false
+
+[functions.airtel-callback]
+verify_jwt = false
