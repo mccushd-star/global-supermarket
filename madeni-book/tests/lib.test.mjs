@@ -124,3 +124,26 @@ test('customer credit balance and lateness', () => {
   S.entries.push({ custId: 'c', type: 'payment', amount: 600, ts: now });
   assert.equal(L.custStat(S, { id: 'c' }, now).bal, -100);
 });
+
+test('fmt shows whole shillings plainly and any cents with exactly two decimals', () => {
+  assert.equal(L.fmt(72101.1), 'KSh 72,101.10');
+  assert.equal(L.fmt(704543.9), 'KSh 704,543.90');
+  assert.equal(L.fmt(2392.49), 'KSh 2,392.49');
+  assert.equal(L.fmt(15650), 'KSh 15,650');
+  assert.equal(L.fmt(0), 'KSh 0');
+  assert.equal(L.fmt(-0.001), 'KSh 0');
+  assert.equal(L.fmt(0.1 + 0.2), 'KSh 0.30');
+});
+
+test('the verdict ignores the period still in progress', () => {
+  const pt = p => ({ profit: p, sales: 100, exp: 0, gin: 0, cogs: 0, ginPaid: 0 });
+  // Earlier periods are steady; the current one has barely started.
+  const W = { N: 4, P: [20, 20, 20, 20].map(pt), B: [20, 20, 20, 1].map(pt) };
+  const s = L.summarize(W);
+  assert.equal(s.state, 'steady');
+  assert.equal(s.cur, 61);
+  assert.equal(s.vn, 3);
+  // A real fall in finished periods is still reported.
+  const W2 = { N: 4, P: [30, 30, 30, 30].map(pt), B: [10, 10, 10, 1].map(pt) };
+  assert.equal(L.summarize(W2).state, 'falling');
+});

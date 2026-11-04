@@ -161,9 +161,11 @@ textarea.reminder{font-family:var(--body);font-size:.92rem;min-height:84px}
 
 /* sign-in and role bar */
 .topright{display:flex;flex-direction:column;gap:8px;align-items:flex-end;min-width:0}
-.who{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:flex-end}
+.userbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:flex-end}
 .authwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
-@media (max-width:760px){.authwrap{grid-template-columns:minmax(0,1fr)}.topright{align-items:flex-start}.who{justify-content:flex-start}}
+@media (max-width:760px){.authwrap{grid-template-columns:minmax(0,1fr)}.topright{align-items:flex-start}.userbar{justify-content:flex-start}}
 .authcard{max-width:520px}
 details summary{padding:4px 0}
 .view[hidden]{display:none}
+
+@media (max-width:520px){.tbl th,.tbl td{padding:6px 4px;font-size:.8rem}.tbl th:first-child,.tbl td:first-child{white-space:normal;min-width:5.5em}.tbl th{letter-spacing:.04em}}

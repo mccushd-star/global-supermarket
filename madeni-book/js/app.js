@@ -139,10 +139,10 @@ function verdictHtml(W,m){
   if(!m.has)return '<section class="verdict steady"><div class="vmark">→</div><div class="vtext"><h2>Nothing entered yet</h2><p>Enter a sale, a delivery of goods or an expense on the Enter tab and this page works out profit or loss for you.</p></div></section>';
   var head=m.state==='rising'?'Rising':m.state==='falling'?'Falling':'Holding steady',mark=m.state==='rising'?'↑':m.state==='falling'?'↓':'→';
   var t=m.cur>=0?'Profit of '+fmt(m.cur)+' over the last '+per+'.':'Loss of '+fmt(-m.cur)+' over the last '+per+'.';
-  var cmp;
+  var cmp,pl=PERLABEL[W.per].replace(/^\d+ /,''),fin=m.vn+' finished '+pl;
   if(!m.hasPrev)cmp=' There are no earlier records to compare with yet, so this follows the trend inside the period.';
-  else if(m.state==='steady')cmp=' About the same as the '+per+' before ('+sgn(m.delta)+').';
-  else cmp=' That is '+fmt(Math.abs(m.delta))+(m.pct!=null?' ('+Math.abs(m.pct).toFixed(0)+'%)':'')+(m.delta>0?' more':' less')+' than the '+per+' before.';
+  else if(m.state==='steady')cmp=' Counting only the '+fin+' (the current one is still running), that is about the same as the '+m.vn+' '+pl+' before ('+sgn(m.vdelta)+').';
+  else cmp=' Counting only the '+fin+' (the current one is still running), that is '+fmt(Math.abs(m.vdelta))+(m.vpct!=null?' ('+Math.abs(m.vpct).toFixed(0)+'%)':'')+(m.vdelta>0?' more':' less')+' than the '+m.vn+' '+pl+' before.';
   if(m.cur<0)head='Losing money';
   return '<section class="verdict '+(m.cur<0?'falling':m.state)+'"><div class="vmark">'+(m.cur<0?'↓':mark)+'</div><div class="vtext"><h2>'+head+'</h2><p>'+t+cmp+'</p></div></section>';
 }
@@ -182,9 +182,10 @@ function viewOverview(){
   var bl=branchList();
   if(S.branch==='all'&&bl.length>1){
     var rows=bl.map(x=>{var w=windowData(per,x.id),s=summarize(w);return {b:x,s:s};});
-    h+='<section class="panel"><h3>Branches, last '+PERLABEL[per]+'</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>Branch</th><th>Sales</th><th>Profit or loss</th><th>Trend</th></tr></thead><tbody>'+
-      rows.map(r=>'<tr><td><button class="linkish" data-act="pickbranch" data-id="'+r.b.id+'">'+esc(r.b.name)+'</button></td><td>'+fmt(r.s.sales)+'</td><td class="'+(r.s.cur<0?'neg':'pos')+'">'+(r.s.cur<0?'− ':'')+fmt(Math.abs(r.s.cur))+'</td><td class="'+(r.s.state==='falling'?'neg':r.s.state==='rising'?'pos':'')+'">'+(r.s.state==='rising'?'↑ Rising':r.s.state==='falling'?'↓ Falling':'→ Steady')+'</td></tr>').join('')+
-      '<tr class="total"><td>All branches</td><td>'+fmt(m.sales)+'</td><td class="'+(m.cur<0?'neg':'pos')+'">'+(m.cur<0?'− ':'')+fmt(Math.abs(m.cur))+'</td><td>'+(m.state==='rising'?'↑ Rising':m.state==='falling'?'↓ Falling':'→ Steady')+'</td></tr></tbody></table></div></section>';
+    var kes=n=>fmt(n).replace('KSh ',''),tr=st=>st==='rising'?'↑ Rising':st==='falling'?'↓ Falling':'→ Steady',tc=st=>st==='falling'?'neg':st==='rising'?'pos':'';
+    h+='<section class="panel"><h3>Branches, last '+PERLABEL[per]+'</h3><div class="tblwrap"><table class="tbl"><thead><tr><th>Branch</th><th>Sales (KSh)</th><th>Profit (KSh)</th><th>Trend</th></tr></thead><tbody>'+
+      rows.map(r=>'<tr><td><button class="linkish" data-act="pickbranch" data-id="'+r.b.id+'">'+esc(r.b.name)+'</button></td><td>'+kes(r.s.sales)+'</td><td class="'+(r.s.cur<0?'neg':'pos')+'">'+(r.s.cur<0?'− ':'')+kes(Math.abs(r.s.cur))+'</td><td class="'+tc(r.s.state)+'">'+tr(r.s.state)+'</td></tr>').join('')+
+      '<tr class="total"><td>All branches</td><td>'+kes(m.sales)+'</td><td class="'+(m.cur<0?'neg':'pos')+'">'+(m.cur<0?'− ':'')+kes(Math.abs(m.cur))+'</td><td class="'+tc(m.state)+'">'+tr(m.state)+'</td></tr></tbody></table></div></section>';
   }
   return h;
 }

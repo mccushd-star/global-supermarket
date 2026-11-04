@@ -9,7 +9,10 @@ export const PERLABEL = { hour: '24 hours', day: '14 days', week: '12 weeks', mo
 /* ---------- formatting ---------- */
 export const r2 = n => Math.round(n * 100) / 100;
 export const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-export const fmt = n => 'KSh ' + (Number(n) === 0 ? 0 : Number(n)).toLocaleString('en-KE', { maximumFractionDigits: 2 });
+export const fmt = n => {
+  const v = Math.round((Number(n) || 0) * 100) / 100, whole = Number.isInteger(v);
+  return 'KSh ' + (v === 0 ? 0 : v).toLocaleString('en-KE', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 });
+};
 export const sgn = n => (n > 0 ? '+ ' : n < 0 ? '− ' : '') + fmt(Math.abs(n));
 export function compact(n) {
   const a = Math.abs(n);
@@ -159,16 +162,19 @@ export function summarize(W) {
   const cur = sumF(W.B, 'profit'), prev = sumF(W.P, 'profit'), delta = cur - prev;
   const made = W.B.reduce((t, b) => t + (b.profit > 0 ? b.profit : 0), 0), lost = W.B.reduce((t, b) => t + (b.profit < 0 ? b.profit : 0), 0);
   const sales = sumF(W.B, 'sales'), has = sales > 0 || sumF(W.B, 'exp') > 0 || sumF(W.B, 'gin') > 0;
-  const hasPrev = sumF(W.P, 'sales') > 0 || sumF(W.P, 'exp') > 0;
+  // The verdict compares finished periods only. The current period is still in progress and would look like a drop.
+  const vB = W.B.slice(0, -1), vP = W.P.slice(1);
+  const vcur = sumF(vB, 'profit'), vprev = sumF(vP, 'profit'), vdelta = vcur - vprev;
+  const hasPrev = sumF(vP, 'sales') > 0 || sumF(vP, 'exp') > 0;
   let state = 'steady';
   if (has && hasPrev) {
-    const base = Math.max(Math.abs(prev), Math.abs(cur), 1);
-    if (Math.abs(delta) >= 0.05 * base) state = delta > 0 ? 'rising' : 'falling';
-  } else if (has) {
-    const ps = W.B.map(b => b.profit), tr = trend(ps), span = tr.b * (W.N - 1), avg = ps.reduce((t, v) => t + Math.abs(v), 0) / W.N;
+    const base = Math.max(Math.abs(vprev), Math.abs(vcur), 1);
+    if (Math.abs(vdelta) >= 0.05 * base) state = vdelta > 0 ? 'rising' : 'falling';
+  } else if (has && vB.length > 1) {
+    const ps = vB.map(b => b.profit), tr = trend(ps), span = tr.b * (vB.length - 1), avg = ps.reduce((t, v) => t + Math.abs(v), 0) / vB.length;
     if (Math.abs(span) >= 0.15 * Math.max(avg, 1)) state = span > 0 ? 'rising' : 'falling';
   }
-  return { cur, prev, delta, hasPrev, made, lost, sales, has, state, pct: prev > 0 ? delta / prev * 100 : null,
+  return { cur, prev, delta, vdelta, vpct: vprev > 0 ? vdelta / vprev * 100 : null, vn: vB.length, hasPrev, made, lost, sales, has, state, pct: prev > 0 ? delta / prev * 100 : null,
     cogs: sumF(W.B, 'cogs'), exp: sumF(W.B, 'exp'), gin: sumF(W.B, 'gin'), ginPaid: sumF(W.B, 'ginPaid') };
 }
 
