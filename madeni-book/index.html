@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0b6b3a">
+<title>Madeni Book</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Madeni Book</h1>
+      <p class="lede">Enter what you buy and sell. The profit works itself out.</p>
+      <span class="syncline" id="sync"><span class="dot"></span><span>Loading…</span></span>
+    </div>
+    <div class="topright">
+      <div class="userbar" id="who"></div>
+      <div class="branchbar" id="branchbar"></div>
+    </div>
+  </header>
+  <div class="exbar" id="exbar" hidden><span>Demo mode: an example business with made-up names and figures. Data stays in this browser and logins are not secure.</span></div>
+  <nav class="nav" id="nav" aria-label="Sections"></nav>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <main class="view" id="view"><p class="empty">Loading…</p></main>
+</div>
+<noscript><p style="padding:16px">Madeni Book needs JavaScript.</p></noscript>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
